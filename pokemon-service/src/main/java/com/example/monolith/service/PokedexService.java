@@ -1,5 +1,7 @@
 package com.example.monolith.service;
 
+import com.example.monolith.client.IPhotoClient;
+import com.example.monolith.dto.PhotoDto;
 import com.example.monolith.dto.PokemonDto;
 import com.example.monolith.exceptionhandler.NoDataFoundException;
 import com.example.monolith.exceptionhandler.PhotoNotFoundException;
@@ -7,12 +9,11 @@ import com.example.monolith.exceptionhandler.PokemonAlreadyExistsException;
 import com.example.monolith.exceptionhandler.PokemonNotFoundException;
 import com.example.monolith.exceptionhandler.TypeNotFoundException;
 import com.example.monolith.mapper.PokemonMapper;
-import com.example.monolith.model.Photo;
 import com.example.monolith.model.Pokemon;
 import com.example.monolith.model.Type;
-import com.example.monolith.repository.IPhotoRepository;
 import com.example.monolith.repository.IPokemonRepository;
 import com.example.monolith.repository.ITypeRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +27,7 @@ public class PokedexService implements IPokedexService {
 
     private final IPokemonRepository pokemonRepository;
     private final ITypeRepository typeRepository;
-    private final IPhotoRepository photoRepository;
+    private final IPhotoClient photoRepository;
     private final PokemonMapper pokemonMapper;
 
     @Override
@@ -35,10 +36,10 @@ public class PokedexService implements IPokedexService {
             throw new PokemonAlreadyExistsException();
         }
         Type type = typeRepository.save(pokemonMapper.toType(pokemonDto));
-        Photo photo = photoRepository.save(pokemonMapper.toPhoto(pokemonDto));
+        PhotoDto photoDto = photoRepository.savePhoto(new PhotoDto(pokemonDto.getPhoto())).getBody();
         Pokemon pokemon = pokemonMapper.toPokemon(pokemonDto);
         pokemon.setTypeId(type.getId());
-        pokemon.setPhotoId(photo.getId());
+        pokemon.setPhotoId(photoDto.getId());
         pokemonRepository.save(pokemon);
     }
 
@@ -46,7 +47,7 @@ public class PokedexService implements IPokedexService {
     public List<PokemonDto> getAllPokemon() {
         List<Pokemon> pokemons = pokemonRepository.findAll();
         List<Type> types = typeRepository.findAll();
-        List<Photo> photos = photoRepository.findAll();
+        List<PhotoDto> photos = photoRepository.getAllPhotos().getBody();
         if (pokemons.isEmpty() || types.isEmpty() || photos.isEmpty()) {
             throw new NoDataFoundException();
         }
@@ -57,7 +58,13 @@ public class PokedexService implements IPokedexService {
     public PokemonDto getPokemon(Long pokemonNumber) {
         Pokemon pokemon = pokemonRepository.findByNumber(pokemonNumber).orElseThrow(PokemonNotFoundException::new);
         Type type = typeRepository.findById(pokemon.getTypeId()).orElseThrow(TypeNotFoundException::new);
-        Photo photo = photoRepository.findById(pokemon.getPhotoId()).orElseThrow(PhotoNotFoundException::new);
+        PhotoDto photo = null;
+        try {
+            photo = photoRepository.getPhotoById(pokemon.getPhotoId()).getBody();
+        } catch (FeignException e){
+            throw new NoDataFoundException();
+        }
+
         return pokemonMapper.toDto(pokemon, type, photo);
     }
 
@@ -67,9 +74,9 @@ public class PokedexService implements IPokedexService {
         Type newType = pokemonMapper.toType(pokemonDto);
         newType.setId(oldPokemon.getTypeId());
         typeRepository.save(newType);
-        Photo newPhoto = pokemonMapper.toPhoto(pokemonDto);
+        PhotoDto newPhoto = new PhotoDto(pokemonDto.getPhoto());
         newPhoto.setId(oldPokemon.getPhotoId());
-        photoRepository.save(newPhoto);
+        photoRepository.savePhoto(newPhoto);
         Pokemon newPokemon = pokemonMapper.toPokemon(pokemonDto);
         newPokemon.setId(oldPokemon.getId());
         newPokemon.setTypeId(oldPokemon.getTypeId());
@@ -81,7 +88,7 @@ public class PokedexService implements IPokedexService {
     public void deletePokemon(Long pokemonNumber) {
         Pokemon pokemon = pokemonRepository.findByNumber(pokemonNumber).orElseThrow(PokemonNotFoundException::new);
         typeRepository.deleteById(pokemon.getTypeId());
-        photoRepository.deleteById(pokemon.getPhotoId());
+        photoRepository.deletePhotoById(pokemon.getPhotoId());
         pokemonRepository.deleteByNumber(pokemonNumber);
     }
 }

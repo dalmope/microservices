@@ -12,4 +12,5 @@ public class PokemonDto {
     private String name;
     private Type types;
     private String photo;
+
 }

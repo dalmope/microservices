@@ -8,6 +8,5 @@ import java.util.Optional;
 public interface IPokemonRepository extends JpaRepository<Pokemon, Long> {
 
     Optional<Pokemon> findByNumber(Long pokemonNumber);
-
     void deleteByNumber(Long pokemonNumber);
 }

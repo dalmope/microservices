@@ -1,6 +1,8 @@
 package com.example.monolith.controller;
 
 import com.example.monolith.dto.PhotoDto;
+import com.example.monolith.mapper.PhotoMapper;
+import com.example.monolith.model.Photo;
 import com.example.monolith.service.IPokedexService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,11 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/pokedex")
+@RequestMapping("/photo")
 @RequiredArgsConstructor
 public class PokedexRestController {
 
     private final IPokedexService pokedexService;
+
+    private final PhotoMapper photoMapper;
 
     @Operation(summary = "Get all the pokemons")
     @ApiResponses(value = {
@@ -37,7 +41,7 @@ public class PokedexRestController {
                             array = @ArraySchema(schema = @Schema(implementation = PhotoDto.class)))),
             @ApiResponse(responseCode = "404", description = "No data found", content = @Content)
     })
-    @GetMapping("/")
+    @GetMapping
     public ResponseEntity<List<PhotoDto>> getAllPhotos() {
         return ResponseEntity.ok(pokedexService.getAllPhotos());
     }
@@ -58,10 +62,10 @@ public class PokedexRestController {
             @ApiResponse(responseCode = "201", description = "Pokemon created", content = @Content),
             @ApiResponse(responseCode = "409", description = "Pokemon already exists", content = @Content)
     })
-    @PostMapping("/")
-    public ResponseEntity<Void> savePokemon(@RequestBody PhotoDto photoDto) {
-        pokedexService.savePhoto(photoDto);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    @PostMapping
+    public ResponseEntity<PhotoDto> savePhoto(@RequestBody PhotoDto photoDto) {
+        Photo photo = pokedexService.savePhoto(photoDto);
+        return ResponseEntity.ok(photoMapper.toDto(photo));
     }
 
     @Operation(summary = "Update an existing pokemon")
@@ -69,7 +73,7 @@ public class PokedexRestController {
             @ApiResponse(responseCode = "200", description = "Pokemon updated", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pokemon not found", content = @Content)
     })
-    @PutMapping("/")
+    @PutMapping
     public ResponseEntity<Void> updatePokemon(@RequestBody PhotoDto photoDto) {
         pokedexService.updatePhoto(photoDto);
         return ResponseEntity.noContent().build();
@@ -80,9 +84,8 @@ public class PokedexRestController {
             @ApiResponse(responseCode = "200", description = "Pokemon deleted", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pokemon not found", content = @Content)
     })
-    @DeleteMapping("/{number}")
-    public ResponseEntity deletePokemonByNumber(@Parameter(description = "Number of the pokemon to be deleted")
-                                                    @PathVariable String photoId) {
+    @DeleteMapping("/{photoId}")
+    public ResponseEntity deletePhotoById(@PathVariable String photoId) {
         pokedexService.deletePhoto(photoId);
         return ResponseEntity.noContent().build();
     }
